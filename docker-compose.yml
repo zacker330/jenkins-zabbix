@@ -1,0 +1,92 @@
+version: '3.3'
+services:
+  ldap:
+    image: osixia/openldap:1.1.8
+    volumes:
+      - ~/slapd-jenkins-zabbix/database:/var/lib/ldap
+      - ~/slapd-jenkins-zabbix/config:/etc/ldap/slapd.d
+    restart: always
+
+  phpldapadmin-service:
+    depends_on:
+      - ldap
+    image: osixia/phpldapadmin:0.7.2
+    ports:
+      - "6443:443"
+    restart: always
+    environment:
+        PHPLDAPADMIN_LDAP_HOSTS: ldap
+
+  jenkins:
+    image: jenkins/jenkins:2.89
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - ~/jenkins-zabbix:/var/jenkins_home
+    restart: always
+
+  zabbix-db:
+    image: mysql:5.7
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: zabbix
+      MYSQL_USER: zabbix
+      MYSQL_PASSWORD: zabbix
+    volumes:
+      - ~/zabbix_mysql_data:/var/lib/mysql
+  zabbix-agent:
+    image: zabbix/zabbix-agent:centos-3.4.15
+    depends_on:
+      - zabbix-server
+    environment:
+      ZBX_HOSTNAME: zabbix-agent
+      ZBX_SERVER_HOST: zabbix-server
+    volumes:
+      - ~/zabbix_agent/zabbix_agentd.d/scripts:/usr/lib/zabbix/externalscripts/
+      - ~/zabbix_agent/zabbix_agentd.d:/etc/zabbix/zabbix_agentd.d
+    restart: always
+  zabbix-server:
+    image: zabbix/zabbix-server-mysql:centos-3.4.15
+    ports:
+      - "10051:10051"
+    depends_on:
+      - zabbix-db
+    environment:
+      MYSQL_USER: root
+      MYSQL_PASSWORD: rootpassword
+      DB_SERVER_HOST: zabbix-db
+      PHP_TZ: Asia/Shanghai
+    restart: always
+  zabbix-web:
+    image: zabbix/zabbix-web-nginx-mysql:centos-3.4.15
+    ports:
+      - "8081:80"
+    depends_on:
+      - zabbix-db
+    environment:
+      MYSQL_USER: root
+      MYSQL_PASSWORD: rootpassword
+      DB_SERVER_HOST: zabbix-db
+      ZBX_SERVER_HOST: zabbix-server
+      PHP_TZ: Asia/Shanghai
+    restart: always
+  grafana:
+    image: grafana/grafana:6.1.0
+    # user: "104"
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SERVER_ROOT_URL: http://localhost
+      GF_SECURITY_ADMIN_PASSWORD: 123456
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource,alexanderzobnin-zabbix-app
+    volumes:
+      - ~/zabbix-grafana/data:/var/lib/grafana
+      - ~/zabbix-grafana/log:/var/log/grafana
+      - ~/zabbix-grafana/plugins:/var/lib/grafana/plugins
+      # - ~/zabbix-grafana/config:/etc/grafana
+    restart: always
+volumes:
+    db_data: {}
