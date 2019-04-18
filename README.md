@@ -5,11 +5,6 @@
 
 ### 各系统访问方法
 
-#### LDAP（可选）
-* url: https://localhost:6443/
-* login DN: cn=admin,dc=example,dc=org
-* password: admin
-
 #### Zabbix web
 * url: http://localhost:8081
 * username: Admin
